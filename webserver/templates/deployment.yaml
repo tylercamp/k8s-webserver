@@ -1,0 +1,65 @@
+{{- $fullName := include "webserver.fullname" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullName }}
+  labels:
+    app.kubernetes.io/name: {{ include "webserver.name" . }}
+    helm.sh/chart: {{ include "webserver.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "webserver.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "webserver.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 20
+          readinessProbe:
+            tcpSocket:
+              port: 80
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+          - mountPath: /usr/share/nginx/html
+            name: wwwroot
+          - mountPath: /etc/nginx/nginx.conf
+            name: config
+            subPath: nginx.conf
+        - name: sftp
+          image: atmoz/sftp:debian
+          args: [ "{{ required "sftp.username is required" .Values.sftp.username }}:{{ required "sftp.password is required" .Values.sftp.password }}:1001" ]
+          volumeMounts:
+          - mountPath: /home/{{ .Values.sftp.username }}/wwwroot
+            name: wwwroot
+          ports:
+          - name: sftp
+            containerPort: 22
+            protocol: TCP
+      volumes:
+      - name: wwwroot
+        persistentVolumeClaim:
+          claimName: {{ $fullName }}
+      - name: config
+        configMap:
+          name: {{ $fullName }}
+          items:
+          - key: nginx.conf
+            path: nginx.conf

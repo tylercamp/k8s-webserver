@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "webserver.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "webserver.name" . }}
+    helm.sh/chart: {{ include "webserver.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: {{ required "sftp.port must be set" .Values.sftp.port }}
+      targetPort: 22
+      protocol: TCP
+      name: sftp
+  selector:
+    app.kubernetes.io/name: {{ include "webserver.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
